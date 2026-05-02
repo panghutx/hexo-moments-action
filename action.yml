@@ -1,0 +1,72 @@
+name: 'Hexo Moments Sync'
+description: 'Sync GitHub Issues to Hexo moments (shuoshuo) data file'
+author: 'panghutx'
+
+branding:
+  icon: 'message-circle'
+  color: 'blue'
+
+inputs:
+  github-token:
+    description: 'GitHub token for API access'
+    required: true
+    default: ${{ github.token }}
+
+  repo-owner:
+    description: 'Repository owner (username or organization)'
+    required: false
+    default: ${{ github.repository_owner }}
+
+  repo-name:
+    description: 'Repository name'
+    required: false
+    default: ${{ github.event.repository.name }}
+
+  label:
+    description: 'Label to filter issues (default: moment)'
+    required: false
+    default: 'moment'
+
+  output-path:
+    description: 'Output path for shuoshuo.yml file'
+    required: false
+    default: 'source/_data/shuoshuo.yml'
+
+outputs:
+  has-changes:
+    description: 'Whether there are changes to commit'
+    value: ${{ steps.check.outputs.has_changes }}
+
+  issue-count:
+    description: 'Number of issues synced'
+    value: ${{ steps.sync.outputs.issue_count }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Sync moments from GitHub Issues
+      id: sync
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        REPO_OWNER: ${{ inputs.repo-owner }}
+        REPO_NAME: ${{ inputs.repo-name }}
+        LABEL: ${{ inputs.label }}
+        OUTPUT_PATH: ${{ inputs.output-path }}
+      run: |
+        node ${{ github.action_path }}/moments.js
+
+    - name: Check for changes
+      id: check
+      shell: bash
+      run: |
+        if git diff --quiet ${{ inputs.output-path }}; then
+          echo "has_changes=false" >> $GITHUB_OUTPUT
+        else
+          echo "has_changes=true" >> $GITHUB_OUTPUT
+        fi
